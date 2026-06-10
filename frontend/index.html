@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfraPulse - K8s Cluster Real-time Dashboard</title>
+    <meta name="description" content="Сучасна система моніторингу та візуалізації стану Kubernetes кластера в реальному часі.">
+    <!-- Inter Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ChartJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/styles.css" id="styles-fallback">
+    <!-- Custom styling inside page or from styles.css -->
+    <style>
+        /* Embed styles directly for single-file or reliable container serving */
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --cyan: #06b6d4;
+            --emerald: #10b981;
+            --emerald-glow: rgba(16, 185, 129, 0.2);
+            --rose: #f43f5e;
+            --amber: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(17, 24, 39, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Layout structure */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2.5rem;
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            font-size: 1.75rem;
+            background: linear-gradient(135deg, var(--primary), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px var(--primary-glow));
+            animation: pulse-glow 2s infinite alternate;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            text-transform: uppercase;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--emerald);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            box-shadow: 0 0 12px var(--emerald-glow);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--rose);
+            border-color: rgba(244, 63, 94, 0.25);
+            box-shadow: none;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .status-dot.pulsing {
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        .namespace-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .namespace-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        select.namespace-select {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            padding: 0.4rem 2rem 0.4rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23f3f4f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1rem;
+            transition: var(--transition);
+        }
+
+        select.namespace-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        main {
+            padding: 2rem 2.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-card.nodes::before { background: var(--cyan); }
+        .stat-card.running::before { background: var(--emerald); }
+        .stat-card.failed::before { background: var(--rose); }
+
+        .stat-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: var(--transition);
+        }
+
+        .stat-card:hover .stat-icon {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: transparent;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .stat-card.nodes:hover .stat-icon {
+            background: var(--cyan);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .stat-card.running:hover .stat-icon {
+            background: var(--emerald);
+            box-shadow: 0 0 15px var(--emerald-glow);
+        }
+
+        .stat-card.failed:hover .stat-icon {
+            background: var(--rose);
+            box-shadow: 0 0 15px rgba(244, 63, 148, 0.4);
+        }
+
+        /* Charts and health section */
+        .analytics-section {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .analytics-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 220px;
+            width: 220px;
+        }
+
+        .cluster-health-indicator {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .health-status-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .health-badge {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 10px var(--emerald);
+            flex-shrink: 0;
+        }
+
+        .health-badge.warning {
+            background: var(--amber);
+            box-shadow: 0 0 10px var(--amber);
+        }
+
+        .health-badge.danger {
+            background: var(--rose);
+            box-shadow: 0 0 10px var(--rose);
+        }
+
+        .health-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .health-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Tables and details tabs */
+        .tabs-container {
+            display: flex;
+            border-bottom: 1px solid var(--card-border);
+            gap: 1.5rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.75rem 0.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            color: #ffffff;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--primary);
+            box-shadow: 0 0 8px var(--primary-glow);
+        }
+
+        .tab-badge {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            padding: 0.15rem 0.4rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .tab-btn.active .tab-badge {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table design */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 1rem;
+            border-bottom: 1px solid var(--card-border);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-weight: 500;
+            color: #e5e7eb;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.015);
+        }
+
+        /* Custom cell elements */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pill.running {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--emerald);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-pill.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .status-pill.failed {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--rose);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+        }
+
+        .mono-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--cyan);
+        }
+
+        .actions-cell {
+            text-align: right;
+        }
+
+        .action-btn {
+            background: rgba(99, 102, 241, 0.1);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: var(--transition);
+        }
+
+        .action-btn:hover {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: transparent;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        /* Modal log viewer */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            opacity: 0;
+            transition: opacity 0.25s ease-out;
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: #0d111a;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .log-terminal {
+            background: #04060a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #e5e7eb;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            height: 450px;
+            line-height: 1.5;
+        }
+
+        /* Animations */
+        @keyframes pulse-glow {
+            0% {
+                filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.3));
+            }
+            100% {
+                filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.7));
+            }
+        }
+
+        @keyframes pulse-dot {
+            0% {
+                transform: scale(0.9);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.15);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0.9);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <i class="fa-solid fa-square-poll-vertical logo-icon"></i>
+            <span class="logo-text">InfraPulse</span>
+            <span class="logo-badge">Kubernetes</span>
+        </div>
+        
+        <div class="header-controls">
+            <div class="namespace-selector-container">
+                <span class="namespace-label">Namespace:</span>
+                <select id="namespace-select" class="namespace-select">
+                    <option value="all">Всі простори (All)</option>
+                </select>
+            </div>
+            
+            <div id="connection-status" class="connection-status">
+                <div class="status-dot pulsing"></div>
+                <span id="connection-text">WebSocket Connected</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Real-time Stats Grid -->
+        <section class="stats-grid">
+            <div class="stat-card nodes">
+                <div class="stat-info">
+                    <span class="stat-label">Ноди (Nodes)</span>
+                    <span id="stats-nodes" class="stat-value">1 / 1</span>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-info">
+                    <span class="stat-label">Поди (Pods)</span>
+                    <span id="stats-pods" class="stat-value">0</span>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-cubes"></i></div>
+            </div>
+            
+            <div class="stat-card running">
+                <div class="stat-info">
+                    <span class="stat-label">Запущені (Running)</span>
+                    <span id="stats-running" class="stat-value">0</span>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            
+            <div class="stat-card failed">
+                <div class="stat-info">
+                    <span class="stat-label">Помилки (Failed)</span>
+                    <span id="stats-failed" class="stat-value">0</span>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+            </div>
+        </section>
+
+        <!-- Charts and general info -->
+        <section class="analytics-section">
+            <div class="section-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-chart-pie"></i>Стан Подів</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="podsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-heartpulse"></i>Статус Кластера</h3>
+                </div>
+                <div class="cluster-health-indicator">
+                    <div class="health-status-box">
+                        <div id="cluster-health-badge" class="health-badge"></div>
+                        <div>
+                            <div id="cluster-health-status" class="health-label">Завантаження...</div>
+                            <div class="health-desc">Загальний показник готовності вузлів Kubernetes API</div>
+                        </div>
+                    </div>
+                    
+                    <div class="health-status-box">
+                        <div id="redis-health-badge" class="health-badge"></div>
+                        <div>
+                            <div id="redis-health-status" class="health-label">Redis Cache: Connected</div>
+                            <div class="health-desc">Кеш в оперативній пам'яті для зменшення навантаження на K8s API</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs content (Pods, Deployments, Services) -->
+        <section class="section-card">
+            <div class="tabs-container">
+                <button class="tab-btn active" onclick="switchTab('pods-tab')">
+                    <i class="fa-solid fa-cubes"></i> Поди
+                    <span id="badge-pods" class="tab-badge">0</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('deployments-tab')">
+                    <i class="fa-solid fa-bezier-curve"></i> Деплойменти
+                    <span id="badge-deployments" class="tab-badge">0</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('services-tab')">
+                    <i class="fa-solid fa-network-wired"></i> Сервіси
+                    <span id="badge-services" class="tab-badge">0</span>
+                </button>
+            </div>
+
+            <!-- Pods Tab -->
+            <div id="pods-tab" class="tab-content active">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Назва</th>
+                                <th>Namespace</th>
+                                <th>Статус</th>
+                                <th>Рестарти</th>
+                                <th>Node</th>
+                                <th>IP</th>
+                                <th>Вік</th>
+                                <th class="actions-cell">Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pods-table-body">
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: var(--text-muted);">Завантаження даних...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Deployments Tab -->
+            <div id="deployments-tab" class="tab-content">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Назва</th>
+                                <th>Namespace</th>
+                                <th>Репліки (Специфікація)</th>
+                                <th>Ready</th>
+                                <th>Available</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deployments-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted);">Завантаження даних...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Services Tab -->
+            <div id="services-tab" class="tab-content">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Назва</th>
+                                <th>Namespace</th>
+                                <th>Тип</th>
+                                <th>Cluster IP</th>
+                                <th>Порти</th>
+                            </tr>
+                        </thead>
+                        <tbody id="services-table-body">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted);">Завантаження даних...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal log viewer -->
+    <div id="log-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-terminal"></i> Логи пода: <span id="log-pod-name" class="mono-text">pod-xyz</span></h3>
+                <button class="modal-close" onclick="closeLogModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="log-container" class="log-terminal">Завантаження логів...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/dashboard.js"></script>
+    <script>
+        // Inline code fallback helper if external dashboard.js fails to load
+        let activeNamespace = "all";
+        let currentData = null;
+        let chartInstance = null;
+
+        // Tab switcher logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Find button matching click
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // Initialize ChartJS
+        function initChart(running = 0, pending = 0, failed = 0) {
+            const ctx = document.getElementById('podsChart').getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Running', 'Pending', 'Failed'],
+                    datasets: [{
+                        data: [running, pending, failed],
+                        backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#9ca3af',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // Load Namespaces
+        async function loadNamespaces() {
+            try {
+                const res = await fetch('/api/namespaces');
+                const nsList = await res.json();
+                const select = document.getElementById('namespace-select');
+                
+                // Clear and add All
+                select.innerHTML = '<option value="all">Всі простори (All)</option>';
+                nsList.forEach(ns => {
+                    const opt = document.createElement('option');
+                    opt.value = ns;
+                    opt.textContent = ns;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error("Failed to load namespaces:", err);
+            }
+        }
+
+        // Render data based on current selector filter
+        function renderUI() {
+            if (!currentData) return;
+            
+            const ns = activeNamespace;
+            const overview = currentData.overview;
+            
+            // Stats updates
+            document.getElementById('stats-nodes').textContent = `${overview.nodes.ready} / ${overview.nodes.total}`;
+            
+            // Cluster Health
+            const healthBadge = document.getElementById('cluster-health-badge');
+            const healthStatus = document.getElementById('cluster-health-status');
+            if (overview.cluster_health === "healthy") {
+                healthBadge.className = "health-badge";
+                healthStatus.textContent = "Cluster: Healthy";
+            } else {
+                healthBadge.className = "health-badge warning";
+                healthStatus.textContent = "Cluster: Degraded";
+            }
+            
+            // Filter Pods
+            const filteredPods = ns === "all" ? currentData.pods : currentData.pods.filter(p => p.namespace === ns);
+            const runningCount = filteredPods.filter(p => p.status === "Running").length;
+            const pendingCount = filteredPods.filter(p => p.status === "Pending").length;
+            const failedCount = filteredPods.filter(p => p.status === "Failed" || p.status === "CrashLoopBackOff" || p.status === "Error").length;
+            
+            document.getElementById('stats-pods').textContent = filteredPods.length;
+            document.getElementById('stats-running').textContent = runningCount;
+            document.getElementById('stats-failed').textContent = failedCount;
+            
+            document.getElementById('badge-pods').textContent = filteredPods.length;
+            
+            // Re-render chart
+            initChart(runningCount, pendingCount, failedCount);
+            
+            // Render Pods Table
+            const podsBody = document.getElementById('pods-table-body');
+            if (filteredPods.length === 0) {
+                podsBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Не знайдено жодного пода</td></tr>';
+            } else {
+                podsBody.innerHTML = filteredPods.map(p => `
+                    <tr>
+                        <td style="font-weight:600;">${p.name}</td>
+                        <td><span class="mono-text" style="color:var(--text-muted);">${p.namespace}</span></td>
+                        <td>
+                            <span class="status-pill ${p.status.toLowerCase() === 'running' ? 'running' : (p.status.toLowerCase() === 'pending' ? 'pending' : 'failed')}">
+                                ${p.status}
+                            </span>
+                        </td>
+                        <td>${p.restarts}</td>
+                        <td>${p.node}</td>
+                        <td class="mono-text">${p.ip}</td>
+                        <td>${p.age}</td>
+                        <td class="actions-cell">
+                            <button class="action-btn" onclick="showLogs('${p.namespace}', '${p.name}')">
+                                <i class="fa-solid fa-terminal"></i> Логи
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            // Filter Deployments
+            const filteredDeps = ns === "all" ? currentData.deployments : currentData.deployments.filter(d => d.namespace === ns);
+            document.getElementById('badge-deployments').textContent = filteredDeps.length;
+            
+            const depsBody = document.getElementById('deployments-table-body');
+            if (filteredDeps.length === 0) {
+                depsBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Не знайдено жодного деплойменту</td></tr>';
+            } else {
+                depsBody.innerHTML = filteredDeps.map(d => `
+                    <tr>
+                        <td style="font-weight:600;">${d.name}</td>
+                        <td><span class="mono-text" style="color:var(--text-muted);">${d.namespace}</span></td>
+                        <td>${d.replicas}</td>
+                        <td>${d.ready}</td>
+                        <td>${d.available}</td>
+                        <td>
+                            <span class="status-pill ${d.replicas === d.ready ? 'running' : 'pending'}">
+                                ${d.replicas === d.ready ? 'Active' : 'Updating'}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            // Filter Services
+            const filteredSvcs = ns === "all" ? currentData.services : currentData.services.filter(s => s.namespace === ns);
+            document.getElementById('badge-services').textContent = filteredSvcs.length;
+            
+            const svcsBody = document.getElementById('services-table-body');
+            if (filteredSvcs.length === 0) {
+                svcsBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Не знайдено жодного сервісу</td></tr>';
+            } else {
+                svcsBody.innerHTML = filteredSvcs.map(s => `
+                    <tr>
+                        <td style="font-weight:600;">${s.name}</td>
+                        <td><span class="mono-text" style="color:var(--text-muted);">${s.namespace}</span></td>
+                        <td>${s.type}</td>
+                        <td class="mono-text">${s.cluster_ip}</td>
+                        <td>${s.ports.map(p => `<span class="mono-text" style="font-size:0.75rem; background:rgba(255,255,255,0.05); padding:0.1rem 0.3rem; border-radius:4px; margin-right:0.25rem;">${p.port}:${p.target}/${p.protocol}</span>`).join('')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // Show logs logic
+        async function showLogs(namespace, podName) {
+            const modal = document.getElementById('log-modal');
+            document.getElementById('log-pod-name').textContent = podName;
+            const logContainer = document.getElementById('log-container');
+            logContainer.textContent = "Завантаження логів...";
+            
+            modal.classList.add('active');
+            
+            try {
+                const res = await fetch(`/api/logs/${namespace}/${podName}`);
+                const data = await res.json();
+                logContainer.textContent = data.logs;
+            } catch (err) {
+                logContainer.textContent = "Помилка завантаження логів: " + err;
+            }
+        }
+
+        function closeLogModal() {
+            document.getElementById('log-modal').classList.remove('active');
+        }
+
+        // WebSockets Connection
+        function connectWebSocket() {
+            const loc = window.location;
+            const wsProtocol = loc.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${wsProtocol}//${loc.host}/ws`;
+            
+            const ws = new WebSocket(wsUrl);
+            const statusDiv = document.getElementById('connection-status');
+            const statusText = document.getElementById('connection-text');
+            
+            ws.onopen = () => {
+                statusDiv.className = "connection-status";
+                statusText.textContent = "WebSocket Active";
+                loadNamespaces();
+            };
+            
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "state_update" || msg.type === "initial_state") {
+                    currentData = msg.data;
+                    renderUI();
+                }
+            };
+            
+            ws.onclose = () => {
+                statusDiv.className = "connection-status disconnected";
+                statusText.textContent = "Disconnected (Reconnecting...)";
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = () => {
+                ws.close();
+            };
+        }
+
+        // Bind events
+        document.getElementById('namespace-select').addEventListener('change', (e) => {
+            activeNamespace = e.target.value;
+            renderUI();
+        });
+
+        // Bootstrap on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            connectWebSocket();
+            
+            // Fetch fallback in case WebSocket gets blocked or delays
+            fetch('/api/overview')
+                .then(r => r.json())
+                .then(o => {
+                    if(!currentData) {
+                        currentData = {
+                            overview: o,
+                            pods: [],
+                            deployments: [],
+                            services: []
+                        };
+                        renderUI();
+                    }
+                }).catch(e => console.log("Init fetch stats fallback skipped."));
+        });
+    </script>
+</body>
+</html>

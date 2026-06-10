@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infrapulse
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/Kuriy35/infrapulse.git'
+    targetRevision: HEAD
+    path: helm/infrapulse
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: infrapulse
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    createNamespace: true
