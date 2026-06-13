@@ -4,9 +4,8 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
-
 class ConnectionManager:
-    """Керує WebSocket-з'єднаннями та розсилає оновлення кластера."""
+\
 
     def __init__(self):
         self.active: List[WebSocket] = []

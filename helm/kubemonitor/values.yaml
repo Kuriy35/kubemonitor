@@ -1,10 +1,10 @@
-# Default values for infrapulse.
+# Default values for kubemonitor.
 
 replicaCount: 1
 
 image:
-  repository: infrapulse-web
-  tag: "latest"
+  repository: kubemonitor-web
+  tag: "1.2.3"
   pullPolicy: IfNotPresent
 
 service:
@@ -18,11 +18,11 @@ redis:
 
 resources:
   limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
     cpu: 200m
     memory: 256Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
 probes:
   liveness:
@@ -38,3 +38,15 @@ securityContext:
   runAsUser: 10001
   runAsGroup: 10001
   runAsNonRoot: true
+
+trivy:
+  enabled: true
+  image: aquasec/trivy:0.71.0
+  serverPort: 4954
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 200m
+      memory: 512Mi

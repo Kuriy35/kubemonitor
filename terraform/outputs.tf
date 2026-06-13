@@ -3,7 +3,7 @@ output "argocd_namespace" {
   value       = kubernetes_namespace.argocd.metadata[0].name
 }
 
-output "infrapulse_namespace" {
-  description = "InfraPulse namespace"
-  value       = kubernetes_namespace.infrapulse.metadata[0].name
+output "kubemonitor_namespace" {
+  description = "KubeMonitor namespace"
+  value       = kubernetes_namespace.kubemonitor.metadata[0].name
 }

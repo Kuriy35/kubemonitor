@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from infrapulse.backend.main import app
+from backend.main import app
 
 client = TestClient(app)
 
@@ -13,14 +13,14 @@ def test_health_check():
 def test_metrics():
     response = client.get("/metrics")
     assert response.status_code == 200
-    assert "infrapulse_info" in response.text
-    assert "infrapulse_pods_total" in response.text
+    assert "kubemonitor_info" in response.text
+    assert "kubemonitor_pods_total" in response.text
 
 def test_root_html():
     response = client.get("/")
     assert response.status_code == 200
-    assert "InfraPulse" in response.text
-    assert "podsChart" in response.text
+    assert "KubeMonitor" in response.text
+    assert "progress-bar-running" in response.text
 
 def test_api_overview():
     response = client.get("/api/overview")
@@ -51,3 +51,23 @@ def test_api_services():
     if len(response.json()) > 0:
         assert "name" in response.json()[0]
         assert "cluster_ip" in response.json()[0]
+
+def test_api_events():
+    response = client.get("/api/events")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+    if len(response.json()) > 0:
+        assert "type" in response.json()[0]
+        assert "reason" in response.json()[0]
+        assert "object" in response.json()[0]
+        assert "message" in response.json()[0]
+        assert "time" in response.json()[0]
+
+def test_api_status():
+    response = client.get("/status")
+    assert response.status_code in [200, 503]
+    data = response.json()
+    assert "status" in data
+    assert "k8s_connected" in data
+
+

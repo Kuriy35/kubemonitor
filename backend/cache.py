@@ -9,9 +9,8 @@ try:
 except ImportError:
     _REDIS = False
 
-
 class RedisCache:
-    """Кешування відповідей Kubernetes API у Redis з TTL."""
+\
 
     def __init__(self):
         self.client = None

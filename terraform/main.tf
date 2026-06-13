@@ -22,26 +22,23 @@ provider "helm" {
   }
 }
 
-# Create ArgoCD Namespace
 resource "kubernetes_namespace" "argocd" {
   metadata {
     name = "argocd"
   }
 }
 
-# Create InfraPulse Namespace
-resource "kubernetes_namespace" "infrapulse" {
+resource "kubernetes_namespace" "kubemonitor" {
   metadata {
-    name = "infrapulse"
+    name = "kubemonitor"
   }
 }
 
-# Deploy ArgoCD via Helm Chart
 resource "helm_release" "argocd" {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
   chart      = "argo-cd"
-  version    = "5.27.3"
+  version    = "9.5.20"
   namespace  = kubernetes_namespace.argocd.metadata[0].name
 
   set {
@@ -55,7 +52,6 @@ resource "helm_release" "argocd" {
   }
 }
 
-# Deploy Kubernetes Metrics Server for monitoring addons
 resource "helm_release" "metrics_server" {
   name       = "metrics-server"
   repository = "https://kubernetes-sigs.github.io/metrics-server/"

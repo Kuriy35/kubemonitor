@@ -1,0 +1,70 @@
+{{- if .Values.trivy.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-trivy
+  labels:
+    app: {{ .Release.Name }}-trivy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-trivy
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-trivy
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: trivy
+          image: {{ .Values.trivy.image }}
+          args:
+            - server
+            - --listen
+            - "0.0.0.0:{{ .Values.trivy.serverPort }}"
+          ports:
+            - name: trivy
+              containerPort: {{ .Values.trivy.serverPort }}
+              protocol: TCP
+          env:
+            - name: TRIVY_CACHE_DIR
+              value: /trivy-cache
+          volumeMounts:
+            - name: trivy-cache
+              mountPath: /trivy-cache
+          resources:
+            {{- toYaml .Values.trivy.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.trivy.serverPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.trivy.serverPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 15
+      volumes:
+        - name: trivy-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-trivy
+  labels:
+    app: {{ .Release.Name }}-trivy
+spec:
+  selector:
+    app: {{ .Release.Name }}-trivy
+  ports:
+    - name: trivy
+      port: {{ .Values.trivy.serverPort }}
+      targetPort: {{ .Values.trivy.serverPort }}
+      protocol: TCP
+{{- end }}

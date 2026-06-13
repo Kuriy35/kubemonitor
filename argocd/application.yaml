@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: infrapulse
+  name: kubemonitor
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/Kuriy35/infrapulse.git'
+    repoURL: 'https://github.com/Kuriy35/kubemonitor.git'
     targetRevision: HEAD
-    path: helm/infrapulse
+    path: helm/kubemonitor
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: infrapulse
+    namespace: kubemonitor
   syncPolicy:
     automated:
-      prune: true
+      prune: true  
       selfHeal: true
     createNamespace: true

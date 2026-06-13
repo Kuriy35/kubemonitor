@@ -11,11 +11,14 @@ metadata:
   name: {{ .Release.Name }}-cluster-role
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "pods", "namespaces", "services", "pods/log"]
-    verbs: ["get", "list", "watch"]
+    resources: ["nodes", "pods", "namespaces", "services", "pods/log", "events", "nodes/stats", "nodes/proxy"]
+    verbs: ["get", "list", "watch", "delete"]
   - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

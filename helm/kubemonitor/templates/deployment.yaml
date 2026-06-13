@@ -33,6 +33,10 @@ spec:
                 configMapKeyRef:
                   name: {{ .Release.Name }}-config
                   key: REDIS_URL
+            {{- if .Values.trivy.enabled }}
+            - name: TRIVY_SERVER_URL
+              value: "http://{{ .Release.Name }}-trivy:{{ .Values.trivy.serverPort }}"
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
